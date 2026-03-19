@@ -37,7 +37,6 @@ const error = ref<string | null>(null)
 
 async function submit() {
   error.value = null
-  auth.error = null
   try {
     await auth.login(email.value, password.value)
     router.push('/dashboard')

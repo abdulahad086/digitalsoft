@@ -20,7 +20,7 @@
           <span>Product</span>
           <select v-model="selectedProductId">
             <option :value="null">Select Product...</option>
-            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} (${{ p.price }})</option>
+            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} (${{ p.sale_price }})</option>
           </select>
         </label>
 
@@ -110,7 +110,7 @@ function addLine() {
   items.value.push({ 
     product_id: p.id, 
     name: p.name, 
-    price: parseFloat(p.price), 
+    price: parseFloat(p.sale_price), 
     quantity: quantity.value 
   })
   selectedProductId.value = null

@@ -1,6 +1,18 @@
 <template>
   <div class="stack">
-    <h2>Dashboard</h2>
+    <div class="header-row">
+      <h2>Dashboard</h2>
+      <div v-if="auth.isSuperAdmin" class="branch-select">
+        <select v-model.number="selectedBranch" @change="load">
+          <option :value="0">Select Branch…</option>
+          <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div v-if="auth.isSuperAdmin && !selectedBranch" class="card muted-msg">
+      Select a branch above to view its dashboard.
+    </div>
 
     <div v-if="loading" class="card">Loading…</div>
     <div v-else-if="error" class="card error">{{ error }}</div>
@@ -58,6 +70,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
 
 type Dashboard = {
   total_sales_today: string
@@ -66,16 +81,35 @@ type Dashboard = {
   top_products: Array<{ product_id: number; name: string; sku: string; quantity_sold: number }>
   low_stock: Array<{ product_id: number; name: string; sku: string; quantity: number }>
 }
+type Branch = { id: number; name: string }
 
 const loading = ref(false)
 const error = ref<string | null>(null)
 const data = ref<Dashboard | null>(null)
+const branches = ref<Branch[]>([])
+const selectedBranch = ref<number>(auth.user?.branch?.id ?? 0)
+
+async function loadBranches() {
+  if (!auth.isSuperAdmin) return
+  try {
+    const res = await api.get('/branches', { params: { per_page: 100 } })
+    branches.value = res.data?.data ?? []
+    if (branches.value.length > 0 && !selectedBranch.value) {
+      selectedBranch.value = branches.value[0].id
+    }
+  } catch {
+    // silently ignore
+  }
+}
 
 async function load() {
+  const bid = auth.isSuperAdmin ? selectedBranch.value : (auth.user?.branch?.id ?? 0)
+  if (!bid) return
   loading.value = true
   error.value = null
   try {
-    const res = await api.get('/dashboard')
+    const params = auth.isSuperAdmin ? { branch_id: bid } : {}
+    const res = await api.get(auth.isSuperAdmin ? '/reports' : '/dashboard', { params })
     data.value = res.data
   } catch (e: any) {
     error.value = e?.response?.data?.message ?? 'Failed to load dashboard'
@@ -84,13 +118,26 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadBranches()
+  load()
+})
 </script>
 
 <style scoped>
 .stack { display: grid; gap: 14px; }
+.header-row { display: flex; justify-content: space-between; align-items: center; }
 h2 { margin: 0; font-size: 18px; }
 h3 { margin: 0 0 10px; font-size: 14px; color: rgba(229,231,235,.9); }
+.branch-select select {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.25);
+  color: #e5e7eb;
+}
+.branch-select select option { background: #1f2937; color: #fff; }
+.muted-msg { color: rgba(229,231,235,.6); font-size: 13px; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 .card {
